@@ -1,0 +1,33 @@
+# Секреты и локальная конфигурация
+.env
+
+# База данных бота
+*.db
+*.sqlite
+*.sqlite3
+
+# Виртуальное окружение
+.venv/
+venv/
+env/
+
+# Кэш Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# Служебные файлы macOS и редакторов
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# Временные файлы SQLite и логи
+*.db-wal
+*.db-shm
+*.db-journal
+*.log
+
+# Резервные версии бота
+bot_before_*.py
