@@ -90,6 +90,33 @@ BTN_SAVED = "⭐ Моё гнездо"
 BTN_INTERESTS = "🔎 Мои интересы"
 BTN_DIGEST_SETTINGS = "🔔 Настройка рассылки"
 
+
+# Готовые отрасли из предложения тестировщика лабораторной №3.
+# Используем уже существующий фильтр интересов: менять структуру SQLite не нужно.
+# Выбор отрасли заменяет текущий список ключевых слов пользователя.
+INDUSTRIES: dict[str, tuple[str, str]] = {
+    "tech": (
+        "💻 IT и технологии",
+        "технологии, искусственный интеллект, нейросети, software, saas",
+    ),
+    "retail": (
+        "🛍 Торговля и ритейл",
+        "ритейл, торговля, магазин, маркетплейс, retail",
+    ),
+    "marketing": (
+        "📣 Маркетинг и реклама",
+        "маркетинг, реклама, продвижение, бренд, advertising",
+    ),
+    "finance": (
+        "💰 Финансы",
+        "финансы, инвестиции, финтех, банки, fintech",
+    ),
+    "food": (
+        "🍽 Рестораны и еда",
+        "ресторан, кафе, общепит, доставка еды, foodtech",
+    ),
+}
+
 INTRO_PHRASES = [
     "Кар-р! Есть свежая находка!",
     "Принесла на хвосте кое-что интересное.",
@@ -1234,20 +1261,33 @@ def interests_text(raw: str) -> str:
             "Сейчас я приношу всё подряд: идеи, кейсы и стартапы.\n\n"
             "Напиши ключевые слова через запятую, например:\n"
             "маркетинг, стартапы, ритейл, франшиза, подписка\n\n"
-            "Или нажми кнопку ниже, чтобы очистить список."
+            "Или выбери готовую отрасль кнопкой «🏢 Выбрать отрасль»."
         )
     listed = ", ".join(words)
     return (
         f"Сейчас ищу по словам: {listed}\n\n"
         "Напиши новый список через запятую — я заменю старый.\n"
-        "Или очисти интересы, если хочешь снова видеть все темы."
+        "Или выбери готовую отрасль, или очисти интересы для всех тем."
     )
 
 
 def interests_keyboard(has_interests: bool) -> InlineKeyboardMarkup:
-    rows = [[InlineKeyboardButton("✏️ Изменить список", callback_data="interests:edit")]]
+    rows = [
+        [InlineKeyboardButton("✏️ Изменить список", callback_data="interests:edit")],
+        [InlineKeyboardButton("🏢 Выбрать отрасль", callback_data="interests:industries")],
+    ]
     if has_interests:
         rows.append([InlineKeyboardButton("🧹 Очистить интересы", callback_data="interests:clear")])
+    return InlineKeyboardMarkup(rows)
+
+
+def industry_keyboard() -> InlineKeyboardMarkup:
+    """Выбор одной отрасли; ручной ввод интересов остаётся доступным."""
+    rows = [
+        [InlineKeyboardButton(label, callback_data=f"industry:{key}")]
+        for key, (label, _) in INDUSTRIES.items()
+    ]
+    rows.append([InlineKeyboardButton("↩️ Назад к интересам", callback_data="interests:view")])
     return InlineKeyboardMarkup(rows)
 
 
@@ -1402,6 +1442,45 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await context.bot.send_message(
             chat_id=query.message.chat_id,
             text="Убрала из гнезда. Если передумаешь — снова жми звезду.",
+        )
+        return
+
+    if data == "interests:industries":
+        await query.edit_message_text(
+            "🐦 Какую отрасль тебе принести в гнездо?\n\n"
+            "Выбери одно направление — я настрою ключевые слова за тебя. "
+            "Текущий список интересов заменится. Свои слова можно будет ввести позже.",
+            reply_markup=industry_keyboard(),
+        )
+        return
+
+    if data == "interests:view":
+        user = get_user(user_id)
+        raw = user["interests"] if user else ""
+        await query.edit_message_text(
+            interests_text(raw),
+            reply_markup=interests_keyboard(bool(parse_keywords(raw))),
+        )
+        return
+
+    if data.startswith("industry:"):
+        industry_key = data.partition(":")[2]
+        industry = INDUSTRIES.get(industry_key)
+        if industry is None:
+            await context.bot.send_message(
+                chat_id=query.message.chat_id,
+                text="Не узнала эту отрасль. Открой «🔎 Мои интересы» и попробуй ещё раз.",
+            )
+            return
+        label, keywords = industry
+        set_interests(user_id, keywords)
+        context.user_data[AWAITING_INTERESTS] = False
+        await query.edit_message_text(
+            f"Кар-р! Выбрала {label}. 🐦\n\n"
+            "Теперь «📰 Свежие находки» будут подбираться по этой отрасли. "
+            "Если публикаций пока нет, попробуй другое направление.\n\n"
+            "Свои ключевые слова всегда можно задать через «✏️ Изменить список».",
+            reply_markup=interests_keyboard(True),
         )
         return
 
