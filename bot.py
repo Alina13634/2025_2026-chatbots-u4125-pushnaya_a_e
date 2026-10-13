@@ -68,7 +68,7 @@ RSS_SOURCES: list[dict[str, str]] = [
 
 # Файл базы рядом со скриптом, чтобы данные не терялись при перезапуске.
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "keysoroka.db")
+DB_PATH = os.getenv("DB_PATH", os.path.join(BASE_DIR, "keysoroka.db"))
 
 REQUEST_TIMEOUT = 15  # секунд на загрузку одной RSS-ленты
 USER_AGENT = "KeysorokaBot/1.0 (educational Telegram bot)"
